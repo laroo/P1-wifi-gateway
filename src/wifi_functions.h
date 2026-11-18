@@ -96,6 +96,7 @@ void start_services() {
   if (Mqtt) {
     mqtt_client.setServer(config_data.mqttIP, atoi(config_data.mqttPort));
     mqtt_client.setSocketTimeout(5); // cap blocking connect at 5s
+    mqtt_client.setBufferSize(1024); // room for the JSON snapshot topic
     Log.verboseln("MQTT server assigned.");
     // mqtt_reconnect();
     Log.verboseln("   … MQTT");

@@ -72,6 +72,7 @@ void send_mqtt_message(const char *topic, char *payload);
 void send_metric(const String &name, float metric);
 void mqtt_send_metric(String name, char *metric);
 void MQTT_reporter();
+void publishJSON();
 void MQTT_Debug();
 
 // newMQTT.h

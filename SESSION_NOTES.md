@@ -180,12 +180,26 @@
   30s; worst case ~5s stall per 30s.
 - WiFi signal at meter location looked marginal (ping ~100-180ms on LAN).
 
+## MQTT JSON topic
+
+- `publishJSON()` in `src/MQTT.h` publishes one JSON per decoded telegram
+  to `<mqttTopic>/json`, after `MQTT_reporter()`. Atomic snapshot for the
+  Marstek dispatcher (`specs/dispatcher-requirements.md` in that repo).
+- Keys: `id`, `ts`, `tariff`, `ed1`/`ed2`/`er1`/`er2` (kWh counters),
+  `power_delivered`/`power_returned` (kW), `pd_l1..3`/`pr_l1..3`,
+  `v_l1..3`, `c_l1..3`, `gas_m3`, `failures`, `long_failures`,
+  `sags_l1..3`, `swells_l1..3`.
+- `mqtt_client.setBufferSize(1024)` in `wifi_functions.h`; PubSubClient's
+  default 256B packet buffer is too small for the ~700B payload.
+- Not retained; string fields are appended unescaped (meter IDs and
+  timestamps are safe in practice, tighten if needed).
+- Verified live on the broker 2026-11-18.
+
 ## Next steps
 
-- Verify MQTT publishes reach `sensors/power/p1meter/...` on 192.168.0.20
-  (broker-side check; mosquitto_sub auth from this machine was refused).
 - Optionally tidy the wiring: data wire stays on D7 (GPIO13); RX pin/GPIO3
   is unused now and could host nothing.
 - If a future Wemos replacement is fitted (working GPIO3), drop
   `-DSERIAL_SWAP` from build_flags and rewire back to the RX pin.
-- Consider committing the accumulated changes; everything is uncommitted.
+- For the dispatcher's ~5s control loop, set the report interval low on
+  /Setup; SMR5 telegrams arrive every second anyway.

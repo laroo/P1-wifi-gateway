@@ -82,6 +82,7 @@ void doMQTT() {
   if (response) {
     PHASE(23);
     MQTT_reporter();
+    publishJSON();
   }
   mqtt_client.loop();
 }
@@ -172,6 +173,76 @@ void send_metric(const String &name, const String &metric) {
 
 void send_metric(const String &name, FixedValue metric) {
   send_metric(name, String(metric.val()));
+}
+
+// Publishes one atomic snapshot of the telegram as JSON on <topic>/json.
+void publishJSON() {
+  String json;
+  json.reserve(700);
+  json += F("{\"id\":\"");
+  json += dsmrData.equipment_id;
+  json += F("\",\"ts\":\"");
+  json += dsmrData.timestamp;
+  json += F("\",\"tariff\":\"");
+  json += dsmrData.electricity_tariff;
+  json += F("\",\"ed1\":");
+  json += String(dsmrData.energy_delivered_tariff1.val(), 3);
+  json += F(",\"ed2\":");
+  json += String(dsmrData.energy_delivered_tariff2.val(), 3);
+  json += F(",\"er1\":");
+  json += String(dsmrData.energy_returned_tariff1.val(), 3);
+  json += F(",\"er2\":");
+  json += String(dsmrData.energy_returned_tariff2.val(), 3);
+  json += F(",\"power_delivered\":");
+  json += String(dsmrData.power_delivered.val(), 3);
+  json += F(",\"power_returned\":");
+  json += String(dsmrData.power_returned.val(), 3);
+  json += F(",\"pd_l1\":");
+  json += String(dsmrData.power_delivered_l1.val(), 3);
+  json += F(",\"pd_l2\":");
+  json += String(dsmrData.power_delivered_l2.val(), 3);
+  json += F(",\"pd_l3\":");
+  json += String(dsmrData.power_delivered_l3.val(), 3);
+  json += F(",\"pr_l1\":");
+  json += String(dsmrData.power_returned_l1.val(), 3);
+  json += F(",\"pr_l2\":");
+  json += String(dsmrData.power_returned_l2.val(), 3);
+  json += F(",\"pr_l3\":");
+  json += String(dsmrData.power_returned_l3.val(), 3);
+  json += F(",\"v_l1\":");
+  json += String(dsmrData.voltage_l1.val(), 1);
+  json += F(",\"v_l2\":");
+  json += String(dsmrData.voltage_l2.val(), 1);
+  json += F(",\"v_l3\":");
+  json += String(dsmrData.voltage_l3.val(), 1);
+  json += F(",\"c_l1\":");
+  json += String(dsmrData.current_l1.val(), 0);
+  json += F(",\"c_l2\":");
+  json += String(dsmrData.current_l2.val(), 0);
+  json += F(",\"c_l3\":");
+  json += String(dsmrData.current_l3.val(), 0);
+  json += F(",\"gas_m3\":");
+  json += dsmrData.gas_delivered;
+  json += F(",\"failures\":");
+  json += String(dsmrData.electricity_failures);
+  json += F(",\"long_failures\":");
+  json += String(dsmrData.electricity_long_failures);
+  json += F(",\"sags_l1\":");
+  json += String(dsmrData.electricity_sags_l1);
+  json += F(",\"sags_l2\":");
+  json += String(dsmrData.electricity_sags_l2);
+  json += F(",\"sags_l3\":");
+  json += String(dsmrData.electricity_sags_l3);
+  json += F(",\"swells_l1\":");
+  json += String(dsmrData.electricity_swells_l1);
+  json += F(",\"swells_l2\":");
+  json += String(dsmrData.electricity_swells_l2);
+  json += F(",\"swells_l3\":");
+  json += String(dsmrData.electricity_swells_l3);
+  json += '}';
+
+  mtopic = String(config_data.mqttTopic) + "/json";
+  send_mqtt_message(mtopic.c_str(), (char *)json.c_str());
 }
 
 void MQTT_reporter() {
