@@ -1,112 +1,68 @@
+# P1 wifi gateway
 
-  P1 wifi gateway 2022
-  
-  Deze software brengt verschillende componenten bij elkaar in een handzaam pakket.
-  
-  De software draait op een ESP8285 of ESP8266 en heeft een bescheiden voetafdruk.
-  
-  De data processing is gebaseerd op: http://domoticx.com/p1-poort-slimme-meter-data-naar-domoticz-esp8266/
-  De captive portal is gebaseerd op een van de ESP8266 voorbeelden, de OTA eenheid eveneens.
-  
-  De module levert data aan een host via JSON of MQTT messages, maar kan ook via de webinterface van de module of via telnet worden uitgelezen
-  
-  De module zal bij opstarten eerst de buffercondensator laden. 
-  Vervolgens knippert hij 2x en zal eerst proberen te koppelen aan je wifi netwerk. Gedurende dat proces zal de LED knipperen
-  met een periode van 0.5 Hz.
-  Wanneer geen verbinding kan worden gemaakt start de modiule een Access point onder de naam P1_Setup
-  Verbind met dit netwerk en surf naar 192.168.4.1
-  
-  Het menuscherm van de module verschijnt dan. Vul daar SSID en wachtwoord van je wifi netwerk in. 
-  Daaronder vul je gegevens van de ontvangede server in (IP en poortnummer). Dit kan je DOmotociz server zijn
-  In dat geval moet je ook het IDx dat Domoticz maakt voor een Gas device en een Energy device invoeren.
-  Tenslotte geef je aan per hoeveel seconde je data naar de server wilt laten sturen.
-  DSMR4 meters hanteren een meetinterval van 10 sec. SMR5 meters leveren iedere seconde data. Dat lijkt me wat veel en 
-  kost de module ook veel stroom waardoor het maar de vraag is of hij parasitair (door de meter gevoed) kan werken.
-  Ik raad een interval van 15 sec of hoger aan. Het interval dat je hier invoert zal niet altijd synchroon lopen met
-  het data interval van de meter, ga er dus niet van uit dat je exact iedere x seconden een meetwaarde ziet in DOmoticz. 
-  Tussen metingen 'slaapt' de module (de modem wordt afgeschakeld waardoor het stroomverbruik van zo'n 70mA terugvalt naar 15 mA). 
-  Dit geeft de bufferelco tijd om op te laden voor de stroompiekjes die de wifi zender van de module produceert 
-  (en het bespaart hoe dan ook wat stroom (die weliswaar door je energieleverancier wordt betaald, maar toch). Alle kleine 
-  beetjes helpen..
- 
-   informatie, vragen, suggesties ed richten aan ronaldleenes@icloud.com
-   
-   default adminpassword: adminpwd
-   
-   Zie http://esp8266thingies.nl voor meer informatie over de module en
-   http://www.esp8266thingies.nl/wp/forum-2/ voor het disussieforum
-   
-   
-     
- @file P1WG_IDE_2.ino
- @author Ronald Leenes
- @date 22.09.2023
- @version 1.1e 
-   
-	1.1.e: fixed passwd length related issues (adminpass, SSID, MQTT), worked on wifi persistance, 
-			disabled wifi powermanagment, removed multilingual support for now
-    1.1d: moved codebase to IDE 2.2, small fixes, added webdebug 
-   
-   
-   1.1adc: implemented extensive logging
-   			updated Swedish version to align with Dutch version (German and French versions lack security features on setup/update)
-   1.1aa: bug fixes
-   1.1: implemented graphs
-   		fixed reporting tariffIndicatorElectricity
-   
-   ud: fixed refreshheaders
-   ua: fixed setup field issue  
-   u: - added password protection for Setup and Update Firmware menus. On first boot of version 1.0u, go to Setup menu 
-        within 60 seconds to bypass password protection.
-      - added out of the box support for Home Assistant "DSMR Reader" integration. Use 'dsmr' as MQTT prefix and data will
-        automatically be delivered in "DSMR Reader" format to the MQTT broker.
-      - fixed MQTT reconnect, it is now non-blocking.
-      - fixed hardboot daycounters reset
-      - fixed sending empty MQTT messages
-      - overall improved stability
-      
-   t: improvements on powermanagement, overall (minor) cleanup
-   ta: fix for Telnet reporting
- 		added French localisation
-   
-   s: added German localisation
-         Added mqtt output for Swedish specific OBIS codes
-         
-   r: speed improvements and streamlining of the parser
-       localisations for: NL, SE
-       
-   q: added daily values
-   p: incorporated equipmentID in mqtt set
-   o: fixed gas output, fixed mqtt reconnect
-   n: empty call to SetupSave now redirects to main menu instead of resetting settings ;-)
-       fixed kWh/Wh inversion
-   m: setupsave fix, relocate to p1wifi.local na 60 sec 
-       mqtt - kw/W fix
-   l: wifireconnect after wifi loss
-   k: fixed big BUG, softAP would not produce accessible webserver.
-   j: raw data on port 23
-       major code rewrite
-       implemented data reporting methods: 
-         parsed data: json, mqtt, p1wifi.local/P1
-         raw data: telnet on port 23, p1wifi.local/Data
-         
-   i:  extended max line length for TD210-D meters, which have a really loong 1-0:99.97.0 line
-   h:  extended mqtt set with instant powers, voltages, actual tarif group. power outages, power drops
-   g: fixed mqtt
-   
-   Generic ESP8285 module 
-	Flash Size: 2mb (FS: 128Kb, OTA: –960Kb) 
-   
-   needed files: 
-   this one (obv), 
-   CRC16.h
-   JSON.ino
-   MQTT.ino
-   TELNET.ino
-   debug.ino
-   decoder.ino
-   functions.ino
-   graph.ino
-   webserver.ino
-   webserverNL.ino
-   wifi.ino 
+Firmware for an ESP8285/ESP8266 module that reads telegrams from the P1 port
+of a Dutch smart meter and reports them over MQTT. Values can also be read
+via the built-in web interface or raw via telnet (port 23).
+
+This repository is a fork of
+[romix123/P1-wifi-gateway](https://github.com/romix123/P1-wifi-gateway) by
+Ronald Leenes. Data processing is based on
+http://domoticx.com/p1-poort-slimme-meter-data-naar-domoticz-esp8266/;
+the captive portal and OTA parts are based on ESP8266 examples.
+See http://esp8266thingies.nl for the original hardware and documentation.
+
+## What's different in 1.4
+
+Bug fixes and hardening on top of the upstream 1.1e codebase:
+
+- Fixed MQTT watchdog resets; `send_metric` recursed infinitely on the
+  first metric of every report, crashing ~8s after boot whenever MQTT was
+  enabled.
+- Startup crash (`LoadProhibited` in `Print::write`) fixed by making
+  `DISABLE_LOGGING` a global build flag.
+- UART0 RX moved to GPIO13 (Wemos pin D7) via `Serial.swap()`; the stock
+  GPIO3/RX input is unreliable on this board.
+- Serial input bounded; a continuous or corrupt RX stream no longer
+  starves the watchdog.
+- MQTT reconnect is non-blocking and rate-limited; an unreachable broker
+  no longer freezes the web UI.
+- Domoticz integration removed; MQTT only.
+- New `/Rx` diagnostics page; shows decode state, byte count, CRC
+  failures, last reset reason and a hex/ASCII dump of recent RX bytes.
+- Version footer shows firmware build date and time.
+- Factory-reset firmware environment (`esp8285_factoryreset`) wipes
+  EEPROM and LittleFS once on boot.
+- Native unit tests for CRC and the DSMR decoder (`pio test -e test`).
+
+## Setup
+
+- On first boot the module starts AP `P1_Setup`; connect and open
+  192.168.4.1.
+- Enter WiFi credentials, MQTT broker IP/port and credentials, and the
+  reporting interval.
+- Default admin password: `adminpwd` (change it via the Setup page).
+- Home Assistant "DSMR Reader" integration: use `dsmr` as MQTT prefix.
+
+## Web endpoints
+
+- `/` main menu, `/P1` live meter values
+- `/Setup` configuration, `/update` OTA firmware upload
+- `/Data` raw datagram, `/Rx` UART diagnostics
+
+## Hardware
+
+- Wemos D1 mini (ESP8266) or generic ESP8285 module; 2 MB flash layout
+  (`eagle.flash.2m128.ld`).
+- P1 front-end: meter TX through ~4k7 to a BC547 base; collector to the
+  Wemos **D7** pin with a ~10k pull-up to 3V3; emitter to GND; grounds
+  shared. RTS tied high makes the meter stream continuously.
+- Note: this firmware expects the data wire on **D7 (GPIO13)**, not the
+  RX pin, because `Serial.swap()` is enabled.
+
+## Building
+
+PlatformIO project; `pio` lives in `~/.platformio/penv/bin/`.
+
+- `pio run -e esp8285` normal firmware (OTA at `/update` or esptool).
+- `pio run -e esp8285_factoryreset` one-time EEPROM/LittleFS wipe image.
+- `pio test -e test` native Unity tests.
