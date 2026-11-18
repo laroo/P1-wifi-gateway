@@ -35,7 +35,7 @@ http://domoticx.com/p1-poort-slimme-meter-data-naar-domoticz-esp8266/
  * De captive portal is gebaseerd op een van de ESP8266 voorbeelden, de OTA
 eenheid eveneens.
  *
- * De module levert data aan een host via JSON of MQTT messages, maar kan ook
+ * De module levert data aan een host via MQTT messages, maar kan ook
 via de webinterface van de module of via telnet worden uitgelezen
  *
  * De module zal bij opstarten eerst de buffercondensator laden.
@@ -48,10 +48,8 @@ onder de naam P1_Setup
  *
  * Het menuscherm van de module verschijnt dan. Vul daar SSID en wachtwoord van
 je wifi netwerk in.
- * Daaronder vul je gegevens van de ontvangede server in (IP en poortnummer).
-Dit kan je DOmotociz server zijn
- * In dat geval moet je ook het IDx dat Domoticz maakt voor een Gas device en
-een Energy device invoeren.
+ * Daaronder vul je gegevens van de ontvangende server in (MQTT broker IP en
+poortnummer).
  * Tenslotte geef je aan per hoeveel seconde je data naar de server wilt laten
 sturen.
  * DSMR4 meters hanteren een meetinterval van 10 sec. SMR5 meters leveren iedere
@@ -61,7 +59,7 @@ parasitair (door de meter gevoed) kan werken.
  * Ik raad een interval van 15 sec of hoger aan. Het interval dat je hier
 invoert zal niet altijd synchroon lopen met
  * het data interval van de meter, ga er dus niet van uit dat je exact iedere x
-seconden een meetwaarde ziet in DOmoticz.
+seconden een meetwaarde ziet.
  * Tussen metingen 'slaapt' de module (de modem wordt afgeschakeld waardoor het
 stroomverbruik van zo'n 70mA terugvalt naar 15 mA).
  * Dit geeft de bufferelco tijd omm op te laden voor de stroompiekjes die de
@@ -157,7 +155,7 @@ void readTelegram();
 
 bool zapfiles = false;
 
-String version = "1.3 – NL";
+String version = "1.4 – NL " __DATE__ " " __TIME__;
 #define NEDERLANDS
 #define HOSTNAME "p1meter"
 #define FSystem 0 // 0= LittleFS 1 = SPIFFS
@@ -189,13 +187,17 @@ DSMR5Mock dSMRMock(DR);
 #elif DEBUG == 3
 const char *host = "P1home";
 #define BLED LED_BUILTIN
+#ifndef DISABLE_LOGGING
 #define DISABLE_LOGGING
+#endif
 #define PRINTER LOG_PRINTER_NULL
 #define DataSerial Serial
 #else
 const char *host = "P1wifi";
 #define BLED LED_BUILTIN
+#ifndef DISABLE_LOGGING
 #define DISABLE_LOGGING
+#endif
 #define PRINTER LOG_PRINTER_NULL
 #define DataSerial Serial
 #endif
@@ -277,6 +279,9 @@ LogPrinterCreator *logPrinterCreator;
 Print *logPrinter;
 
 void setup() {
+  ESP.rtcUserMemoryRead(60, &lastPhase, 4);
+  ESP.rtcUserMemoryRead(61, &lastPhaseMillis, 4);
+  PHASE(1);
   // Configure PINS
   pinMode(OE, OUTPUT);    // IO16 OE on the 74AHCT1G125
   digitalWrite(OE, HIGH); // Put(Keep) OE in Tristate mode
@@ -286,6 +291,11 @@ void setup() {
 
   // Configure Serial
   Serial.begin(115200);
+#ifdef SERIAL_SWAP
+  Serial.swap(); // UART0 RX on GPIO13 (Wemos D7) instead of GPIO3
+#endif
+  Serial.setTimeout(50); // keep readBytesUntil short; data streams continuously
+  PHASE(2);
 
   // Configure logger
   logPrinterCreator = new LogPrinterCreator();
@@ -313,14 +323,26 @@ void setup() {
   EEPROM.begin(sizeof(struct settings));
   EEPROM.get(0, config_data);
 
+#ifdef RESET_SETTINGS
+  // Factory reset: wipe settings and filesystem once. The 'R' marker in
+  // dataSet[2] is never written by the normal save path, so it persists
+  // and prevents re-wiping on subsequent boots.
+  if (config_data.dataSet[2] != 'R') {
+    config_data.dataSet[0] = 'x';
+    config_data.dataSet[2] = 'R';
+    EEPROM.put(0, config_data);
+    EEPROM.commit();
+    FST.format();
+  }
+#endif
+
   if (config_data.dataSet[0] != 'j') {
+    // Preserve dataSet[2]; the RESET_SETTINGS marker lives there and would
+    // otherwise be overwritten, causing a wipe on every boot.
+    char resetMarker = config_data.dataSet[2];
     config_data = (settings){"n",
                              "orbi",
                              "Moesmate",
-                             "-",
-                             "8080",
-                             "1234",
-                             "1235",
                              "sensors/power/p1meter",
                              "192.168.1.123",
                              "1883",
@@ -328,16 +350,15 @@ void setup() {
                              "VerySecret",
                              "30",
                              "j",
-                             "j",
                              "n",
                              "n",
                              "n",
                              "adminpwd"};
+    config_data.dataSet[2] = resetMarker;
   }
 
   (config_data.watt[0] == 'j') ? reportInDecimals = false
                                : reportInDecimals = true;
-  (config_data.domo[0] == 'j') ? Json = true : Json = false;
   (config_data.mqtt[0] == 'j') ? Mqtt = true : Mqtt = false;
   //(config_data.telnet[0] =='j') ? Telnet = true : Telnet = false;
   Telnet = true;
@@ -357,7 +378,9 @@ void setup() {
   interval = atoi(config_data.interval) * 1000;
   Log.verboseln("interval: %d", interval);
 
+  PHASE(3);
   wifiManager->connect(config_data.ssid, config_data.password, "P1_Setup");
+  PHASE(4);
 
   if (WiFi.status() == WL_CONNECTED) {
     // handle Files
@@ -396,6 +419,7 @@ void setup() {
 
     Log.verboseln("All systems are go...");
     alignToTelegram();
+    PHASE(5);
     nextUpdateTime = nextMQTTreconnectAttempt = EverSoOften = TenSecBeat =
         millis();
 
@@ -408,11 +432,19 @@ void setup() {
 
 void readTelegram() {
   if (DataSerial.available()) {
-    memset(telegram, 0, sizeof(telegram));
-    while (DataSerial.available()) {
-      int len = DataSerial.readBytesUntil('\n', telegram, MAXLINELENGTH);
+    // Bound work per call: a flooded or corrupt RX line would otherwise
+    // block loop() until the watchdog resets.
+    for (int lines = 0; lines < 8 && DataSerial.available(); lines++) {
+      memset(telegram, 0, sizeof(telegram));
+      int len =
+          DataSerial.readBytesUntil('\n', telegram, MAXLINELENGTH - 2);
       telegram[len] = '\n';
       telegram[len + 1] = 0;
+      rxByteCount += len;
+      for (int i = 0; i < len; i++) {
+        rxCapture[rxCapPos] = telegram[i];
+        rxCapPos = (rxCapPos + 1) % 512;
+      }
       ToggleLED
 
       Log.verbose("STATE: ");
@@ -468,6 +500,7 @@ void readTelegram() {
 }
 
 void loop() {
+  PHASE(9);
   if ((millis() > nextUpdateTime)) { // && monitoring){
     if (!OEstate) {                  // OE is disabled  == false
       DataSerial.flush();
@@ -475,41 +508,51 @@ void loop() {
       RTS_on();
     }
   } // update window
+  PHASE(10);
   if (OEstate)
     readTelegram();
 
   if (datagramValid && (state == DONE) && (WiFi.status() == WL_CONNECTED)) {
     if (Mqtt) {
+      PHASE(20);
       doMQTT();
       // if (MqttDelivered) {
       //    MqttDelivered = false;  // reset
       // }
     }
-    if (Json)
-      doJSON();
-    if (Telnet)
+    if (Telnet) {
+      PHASE(26);
       TelnetReporter();
-    if (MQTT_debug)
+    }
+    if (MQTT_debug) {
+      PHASE(27);
       MQTT_Debug();
+    }
     datagramValid = false; // reset
     state = WAITING;
   }
 
   if ((WiFi.getMode() == WIFI_AP) || (WiFi.status() == WL_CONNECTED)) {
+    PHASE(30);
     server.handleClient(); // handle web requests
     MDNS.update();
     //      if (Telnet) telnetloop();// telnet.loop();
   }
 
   if (millis() > FiveSecBeat) {
-    if (Telnet && (WiFi.status() == WL_CONNECTED))
+    if (Telnet && (WiFi.status() == WL_CONNECTED)) {
+      PHASE(31);
       telnetloop();
+    }
     FiveSecBeat = millis() + 5000;
   }
 
   if (millis() > EverSoOften) {
+    PHASE(40);
     checkCounters();
+    PHASE(41);
     resetFlags();
+    PHASE(42);
     doWatchDogs();
     EverSoOften = millis() + 22000;
   }
@@ -517,9 +560,11 @@ void loop() {
   if ((state == FAILURE) &&
       (dataFailureCount ==
        10)) { // last resort if we get keeping kicked out by bad data
+    PHASE(45);
     mqtt_client.disconnect();
     ESP.restart();
   }
+  PHASE(50);
   timerAlarm.update();
 
 #if PRINTER == LOG_PRINTER_TELNET
@@ -527,7 +572,6 @@ void loop() {
 #endif
 }
 
-#include "JSON.h"
 #include "MQTT.h"
 #include "TELNET.h"
 #include "decoder.h"

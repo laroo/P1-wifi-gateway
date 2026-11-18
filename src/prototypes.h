@@ -50,12 +50,6 @@ void theGraph(const char *type1, const char *type2, String title1,
               String title2, String label, String period);
 void calendarGas();
 
-// JSON.h
-void doJSON();
-bool DomoticzJson(char *idx, int nValue, char *sValue);
-void UpdateGas();
-void UpdateElectricity();
-
 // logging.h
 void doInitLogVars();
 void doInitLogVarsGas();
@@ -75,7 +69,7 @@ void doMQTT();
 bool mqtt_connect();
 void callback(char *topic, byte *payload, unsigned int length);
 void send_mqtt_message(const char *topic, char *payload);
-void send_metric(String name, float metric);
+void send_metric(const String &name, float metric);
 void mqtt_send_metric(String name, char *metric);
 void MQTT_reporter();
 void MQTT_Debug();
@@ -89,7 +83,7 @@ bool telnetStillRunning();
 void TelnetReporter();
 
 // webserver.h
-void addHead(String &str, int refresh);
+void addHead(String &str, int refresh, const char *refreshUrl = "/");
 void addGraphHead(String &str);
 void addIntro(String &str);
 void addUptime(String &str);
@@ -109,6 +103,7 @@ void addFootBare(String &str);
 void handleSetup();
 void handleP1();
 void handleRawData();
+void handleRxDiag();
 
 // wifi_functions.h
 void initWifiHandlers();

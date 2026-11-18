@@ -1,12 +1,14 @@
 // HTML statics
 
-void addHead(String &str, int refresh) {
+void addHead(String &str, int refresh, const char *refreshUrl) {
   String str2;
   str += F("<!DOCTYPE html><html lang='en' class=''>");
   if (refresh > 0) {
     str += F("<META http-equiv='refresh' content='");
     str += String(refresh);
-    str += F(";URL=/'>");
+    str += F(";URL=");
+    str += refreshUrl;
+    str += F("'>");
   }
   str += F("<meta charset='utf-8'><meta name=\"viewport\" "
            "content=\"width=device-width,initial-scale=1,user-scalable=no\"/>");
@@ -183,23 +185,10 @@ void handleSetupSave() {
     strncpy(config_data.adminPassword, server.arg("adminPassword").c_str(),
             server.arg("adminPassword").length());
 
-    if (server.arg("domo") == "on")
-      config_data.domo[0] = 'j';
-    else
-      config_data.domo[0] = 'n';
     strncpy(config_data.ssid, server.arg("ssid").c_str(),
             server.arg("ssid").length());
     strncpy(config_data.password, server.arg("password").c_str(),
             server.arg("password").length());
-    strncpy(config_data.domoticzIP, server.arg("domoticzIP").c_str(),
-            server.arg("domoticzIP").length());
-    strncpy(config_data.domoticzPort, server.arg("domoticzPort").c_str(),
-            server.arg("domoticzPort").length());
-    strncpy(config_data.domoticzEnergyIdx,
-            server.arg("domoticzEnergyIdx").c_str(),
-            server.arg("domoticzEnergyIdx").length());
-    strncpy(config_data.domoticzGasIdx, server.arg("domoticzGasIdx").c_str(),
-            server.arg("domoticzGasIdx").length());
 
     if (server.arg("mqtt") == "on")
       config_data.mqtt[0] = 'j';
@@ -233,38 +222,17 @@ void handleSetupSave() {
       config_data.debug[0] = 'n';
 
     config_data.dataSet[0] = 'j';
-    config_data
-        .dataSet[1] = config_data
-                          .adminPassword[server.arg("adminPassword").length()] =
-        config_data.ssid[server.arg("ssid")
-                             .length()] = config_data
-                                              .password[server.arg("password")
-                                                            .length()] =
-            config_data.domoticzIP[server.arg("domoticzIP").length()] =
-                config_data.domoticzPort[server.arg("domoticzPort").length()] =
-                    config_data
-                        .domoticzGasIdx[server.arg("domoticzGasIdx").length()] =
-                        config_data.domoticzEnergyIdx
-                            [server.arg("domoticzEnergyIdx").length()] =
-                            config_data
-                                .interval[server.arg("interval").length()] =
-                                config_data
-                                    .mqttIP[server.arg("mqttIP").length()] =
-                                    config_data.mqttPort[server.arg("mqttPort")
-                                                             .length()] =
-                                        config_data.mqttUser
-                                            [server.arg("mqttUser").length()] =
-                                            config_data
-                                                .mqttPass[server.arg("mqttPass")
-                                                              .length()] =
-                                                config_data.mqttTopic
-                                                    [server.arg("mqttTopic")
-                                                         .length()] =
-                                                    config_data.mqtt[1] = // server.arg("mqtt").length()]
-                                                                          // =
-        config_data.domo[1] =   // server.arg("domo").length()] =
-        config_data.watt[1] =   // server.arg("watt").length()] =
-        config_data.telnet[1] = // server.arg("telnet").length()] =
+    config_data.dataSet[1] = '\0';
+    config_data.adminPassword[server.arg("adminPassword").length()] = '\0';
+    config_data.ssid[server.arg("ssid").length()] = '\0';
+    config_data.password[server.arg("password").length()] = '\0';
+    config_data.interval[server.arg("interval").length()] = '\0';
+    config_data.mqttIP[server.arg("mqttIP").length()] = '\0';
+    config_data.mqttPort[server.arg("mqttPort").length()] = '\0';
+    config_data.mqttUser[server.arg("mqttUser").length()] = '\0';
+    config_data.mqttPass[server.arg("mqttPass").length()] = '\0';
+    config_data.mqttTopic[server.arg("mqttTopic").length()] = '\0';
+    config_data.mqtt[1] = config_data.watt[1] = config_data.telnet[1] =
         config_data.debug[1] = '\0';
 
     EEPROM.put(0, config_data);

@@ -40,15 +40,6 @@ void PrintConfigData() {
   Log.verboseln(config_data.ssid);
   Log.verbose("password : ");
   Log.verboseln(config_data.password);
-  Log.verbose("DomoticxIP : ");
-  Log.verboseln(config_data.domoticzIP);
-  Log.verbose("DomoticzPort : ");
-  Log.verboseln(config_data.domoticzPort);
-  Log.verbose("domotixzGasIdx : ");
-  Log.verboseln(config_data.domoticzGasIdx);
-  Log.verbose("domotixzEnergyIdx : ");
-  Log.verboseln(config_data.domoticzEnergyIdx);
-
   Log.verbose("mqttIP : ");
   Log.verboseln(config_data.mqttIP);
   Log.verbose("mqttPort : ");
@@ -62,8 +53,6 @@ void PrintConfigData() {
 
   Log.verbose("interval : ");
   Log.verboseln(config_data.interval);
-  Log.verbose("json : ");
-  Log.verboseln(config_data.domo);
   Log.verbose("mqtt : ");
   Log.verboseln(config_data.mqtt);
   Log.verbose("watt : ");

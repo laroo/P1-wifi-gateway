@@ -68,13 +68,7 @@
 #define HELP_RAW "<p>De ruwe data is beschikbaar via "
 #define HELP_TEXT2                                                             \
   "<p>Meer gangbaar is het gebruik van de gateway met een domotica systeem.</p>\
-    <p><b>Domoticz</b> accepteert json berichten. Geef hiertoe het IP adres van <br>\
-    je Domoticz server op en het poortnummer waarop deze kan worden benaderd (doorgaans 8080).</p>\
-    De benodigde Idx voor gas en electra verkrijgt u door eerst in Domoticz virtule sensors \
-    voor beiden aan te maken. Na creatie verschijnen de Idxen onder het tabblad 'devices'.</p><br><br>\
-    Data kan ook (door Domoticz bijvoorbeeld) worden uitgelezen via poort 23 van de module (p1wifi.local:23).\
-    Dit is de manier waarop Domoticz hardware device [P1 Smart Meter with LAN interface] data kan ophalen.\
-    Aan de p1wifi kant hoeft daarvoor niets te worden ingesteld (geen vinkjes bij json en mqtt).<br><br>\
+    Data kan worden uitgelezen via poort 23 van de module (p1wifi.local:23).<br><br>\
     Voor andere systemen kan je gebruik maken van een MQTT broker. Vul de gegevens van de broker in, en stel het root topic in. \
     Voor Home Assistant is 'dsmr' handig omdat dan de 'DSMR Reader' integration in HA kan worden gebruikt. Die verweerkt de data van \
     de module keurig.</p>\

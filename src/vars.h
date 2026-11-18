@@ -7,17 +7,12 @@ struct settings {
   char dataSet[4];
   char ssid[32];
   char password[64];
-  char domoticzIP[30] = "IPaddress";
-  char domoticzPort[10] = "Port";
-  char domoticzEnergyIdx[10] = "EnergyIdx";
-  char domoticzGasIdx[10] = "GasIdx";
   char mqttTopic[50] = "sensors/power/p1meter";
   char mqttIP[30] = "";
   char mqttPort[10] = "";
   char mqttUser[32] = "";
   char mqttPass[64] = "";
   char interval[3] = "20";
-  char domo[4] = "j";
   char mqtt[4] = "n";
   char watt[4] = "n";
   char telnet[4] = "n";
@@ -111,8 +106,6 @@ struct DSMRData {
 
   uint8_t P1prot() { return p1_version[0] == '4' ? 4 : 5; }
 } dsmrData;
-
-String prevGAS; // not an P1 protocol var, but holds gas value
 
 // logging vars
 byte logFlags;
@@ -209,6 +202,18 @@ bool meternameSet = false; // do we have a metername already?
 
 bool datagramValid = false; //
 int dataFailureCount = 0; //counter for CRC failures
+unsigned long rxByteCount = 0; // bytes consumed by readTelegram (diagnostics)
+byte rxCapture[512];           // ring buffer of last bytes read
+int rxCapPos = 0;              // next write position in rxCapture
+uint32_t lastPhase = 0;        // PHASE marker from before last reset (RTC mem)
+uint32_t lastPhaseMillis = 0;  // millis() at that marker (RTC mem)
+uint32_t curPhase = 0;         // current PHASE marker
+#define PHASE(n)                      \
+  {                                   \
+    curPhase = n;                     \
+    uint32_t _pv[2] = {n, millis()};  \
+    ESP.rtcUserMemoryWrite(60, _pv, 8); \
+  }
 bool dataEnd = false; // signals that we have found the end char in the data (!)
 unsigned int currentCRC = 0; // the CRC v alue of the datagram
 bool gas22Flag = false; // flag for parsing second gas line on dsmr2.2 meters
@@ -245,10 +250,6 @@ int state = DISABLED;
 #define GOTMETER 1
 #define RUNNING 2
 int devicestate = CONFIG;
-
-// JSON
-bool Json = false;
-String LastJReport = ""; // timestamp of last telegram reported via JSON
 
 // Telnet
 bool Telnet = false;

@@ -40,33 +40,6 @@ void handleSetup() {
   str += config_data.password;
   str += F("'></p></fieldset>");
 
-  str += F("<fieldset><legend><b>&nbsp;Domoticz parameters&nbsp;</b></legend>");
-
-  str += F("<p><b>Rapporteer aan Domoticz?</b><input type='checkbox' "
-           "class='form-control' name='domo' id='domo' ");
-
-  if (config_data.domo[0] == 'j')
-    str += F(" checked></p>");
-  else
-    str += F("></p>");
-  str += F("<p><b>Domoticz IP address</b><input type='text' "
-           "class='form-control' name='domoticzIP' value='");
-  str += config_data.domoticzIP;
-  str += F("'></p><p>");
-  str += F("<b>Domoticz Port</b><input type='text' class='form-control' "
-           "name='domoticzPort' value='");
-  str += config_data.domoticzPort;
-  str += F("'></p><p>");
-  str += F("<b>Domoticz Gas Idx</b><input type='text' class='form-control' "
-           "name='domoticzGasIdx' value='");
-  str += config_data.domoticzGasIdx;
-  str += F("'></p><p>");
-  str += F("<b>Domoticz Energy Idx</b><input type='text' class='form-control' "
-           "name='domoticzEnergyIdx' value='");
-  str += config_data.domoticzEnergyIdx;
-  str += F("'></p>");
-  str += F("</fieldset>");
-
   str += F("<fieldset><legend><b>&nbsp;MQTT parameters&nbsp;</b></legend>");
   str += F("<p><b>Rapporteer aan MQTT broker?</b><input type='checkbox' "
            "class='form-control' name='mqtt' id='mqtt' ");
@@ -145,7 +118,7 @@ void handleP1() {
   else
     eenheid2 = " W'></div></p>";
 
-  addHead(str, 60);
+  addHead(str, 60, "/P1");
   addIntro(str);
 
   str += F("<form ><fieldset><legend><b>Meetwaarden</b></legend>");
@@ -294,6 +267,43 @@ void handleRawData() {
     server.send(200, "text/html", str);
     Log.verbose("%s\n", datagram);
   }
+}
+
+void handleRxDiag() {
+  String str;
+  addHead(str, 10, "/Rx");
+  addIntro(str);
+  str += F("<fieldset><legend><b>&nbsp;RX diagnostics&nbsp;</b></legend><pre>");
+  str += "decode state: " + String(state) + "   OE enabled: " +
+         String(OEstate) + "\n";
+  str += "bytes read: " + String(rxByteCount) + "   CRC failures: " +
+         String(dataFailureCount) + "\n";
+  str += "last reset: " + ESP.getResetReason() +
+         "   free heap: " + String(ESP.getFreeHeap()) + "\n";
+  str += "phase before reset: " + String(lastPhase) +
+         " at " + String(lastPhaseMillis) + "ms" +
+         "   now: " + String(curPhase) + " at " + String(millis()) + "ms\n\n";
+
+  int n = rxByteCount < 512 ? (int)rxByteCount : 512;
+  int start = (rxCapPos - n + 512) % 512;
+  for (int i = 0; i < n; i += 16) {
+    for (int j = i; j < i + 16 && j < n; j++) {
+      char hex[4];
+      sprintf(hex, "%02X ", rxCapture[(start + j) % 512]);
+      str += hex;
+    }
+    str += " |";
+    for (int j = i; j < i + 16 && j < n; j++) {
+      byte c = rxCapture[(start + j) % 512];
+      str += (c >= 32 && c < 127) ? (char)c : '.';
+    }
+    str += "|\n";
+  }
+  if (n == 0)
+    str += "(no bytes captured yet)\n";
+  str += F("</pre></fieldset>");
+  addFoot(str);
+  server.send(200, "text/html", str);
 }
 
 #endif

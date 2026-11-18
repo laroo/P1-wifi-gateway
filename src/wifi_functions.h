@@ -17,6 +17,7 @@ void start_webservices() {
 
   server.on("/P1", handleP1);
   server.on("/Data", handleRawData);
+  server.on("/Rx", handleRxDiag);
   server.on("/Help", handleHelp);
 #if GRAPH == 1
   //  server.on("/Graph", handleGraph);
@@ -94,6 +95,7 @@ void start_services() {
 
   if (Mqtt) {
     mqtt_client.setServer(config_data.mqttIP, atoi(config_data.mqttPort));
+    mqtt_client.setSocketTimeout(5); // cap blocking connect at 5s
     Log.verboseln("MQTT server assigned.");
     // mqtt_reconnect();
     Log.verboseln("   … MQTT");

@@ -79,75 +79,35 @@
 
 void doMQTT() {
   bool response = mqtt_connect();
-  if (response)
+  if (response) {
+    PHASE(23);
     MQTT_reporter();
+  }
+  mqtt_client.loop();
 }
 
 bool mqtt_connect() {
   mqtt_client.setCallback(callback);
-  byte i = 0;
-  while (!mqtt_client.connected() && (i < 3)) {
-    Log.verboseln("Attempting MQTT connection");
-    // Attempt to connect
-    boolean ret;
+  if (mqtt_client.connected())
+    return true;
+  if (millis() < nextMQTTreconnectAttempt)
+    return false;
 
-    ret = mqtt_client.connect(HOSTNAME, config_data.mqttUser,
-                              config_data.mqttPass);
-    if (ret) {
-      Log.verboseln("Connected to MQTT");
-      MqttConnected = true;
-      mqtt_client.publish("outTopic", "P1 gateway");
-      mqtt_client.subscribe("inTopic");
-      return true;
-    } else {
-      MqttConnected = false;
-      Log.verbose("Failed MQTT connection, return code:");
-
-      int Status = mqtt_client.state();
-
-      switch (Status) {
-      case -4:
-        Log.verboseln("Connection timeout");
-        break;
-
-      case -3:
-        Log.verboseln("Connection lost");
-        break;
-
-      case -2:
-        Log.verboseln("Connect failed");
-        break;
-
-      case -1:
-        Log.verboseln("Disconnected");
-        break;
-
-      case 1:
-        Log.verboseln("Bad protocol");
-        break;
-
-      case 2:
-        Log.verboseln("Bad client ID");
-        break;
-
-      case 3:
-        Log.verboseln("Unavailable");
-        break;
-
-      case 4:
-        Log.verboseln("Bad credentials");
-        break;
-
-      case 5:
-        Log.verboseln("Unauthorized");
-        break;
-      }
-      if (i == 2)
-        Log.verboseln("Retrying MQTT connection next cycle");
-      i++;
-      delay(1000);
-    }
+  Log.verboseln("Attempting MQTT connection");
+  PHASE(21);
+  boolean ret = mqtt_client.connect(HOSTNAME, config_data.mqttUser,
+                                    config_data.mqttPass);
+  PHASE(22);
+  if (ret) {
+    Log.verboseln("Connected to MQTT");
+    MqttConnected = true;
+    mqtt_client.publish("outTopic", "P1 gateway");
+    mqtt_client.subscribe("inTopic");
+    PHASE(24);
+    return true;
   }
+  MqttConnected = false;
+  nextMQTTreconnectAttempt = millis() + 30000; // non blocking retry in 30s
   return false;
 }
 
@@ -178,46 +138,40 @@ void send_mqtt_message(const char *topic, char *payload) {
   }
 }
 
-void send_metric(String name, float metric) // added *long
-{
+void send_metric(const String &name, float metric) {
   char value[20];
   dtostrf(metric, 3, 3, value);
-  //  output ftoa(metric, output, 3);
 
   mtopic = String(config_data.mqttTopic) + "/" + name;
-  send_mqtt_message(mtopic.c_str(), value); // output
+  send_mqtt_message(mtopic.c_str(), value);
 }
 
-void send_metric(String name, double metric) // added *long
-{
+void send_metric(const String &name, double metric) {
   char value[20];
   dtostrf(metric, 3, 3, value);
-  //  output ftoa(metric, output, 3);
 
   mtopic = String(config_data.mqttTopic) + "/" + name;
-  send_mqtt_message(mtopic.c_str(), value); // output
+  send_mqtt_message(mtopic.c_str(), value);
 }
 
-void send_metric(String name, uint32_t metric) // added *long
-{
-  char value[6];
+void send_metric(const String &name, uint32_t metric) {
+  char value[12];
   sprintf(value, "%u", metric);
-  send_mqtt_message(mtopic.c_str(), value); // output
+  mtopic = String(config_data.mqttTopic) + "/" + name;
+  send_mqtt_message(mtopic.c_str(), value);
 }
 
-void send_metric(String name, String metric) // added *long
-{
-  send_metric(mtopic, metric.c_str()); // output
-}
-
-void send_metric(String name, FixedValue metric) // added *long
-{
-  send_metric(mtopic, String(metric.val())); // output
-}
-
-void send_metric(String name, const char *metric) {
+void send_metric(const String &name, const char *metric) {
   mtopic = String(config_data.mqttTopic) + "/" + name;
   send_mqtt_message(mtopic.c_str(), (char *)metric);
+}
+
+void send_metric(const String &name, const String &metric) {
+  send_metric(name, metric.c_str());
+}
+
+void send_metric(const String &name, FixedValue metric) {
+  send_metric(name, String(metric.val()));
 }
 
 void MQTT_reporter() {
@@ -329,7 +283,7 @@ void MQTT_reporter() {
 }
 
 void MQTT_Debug() {
-  char outstr[10];
+  char outstr[16];
 
   dtostrf(millis(), 10, 0, outstr);
   send_mqtt_message("p1wifi/P1now", outstr);
@@ -343,8 +297,6 @@ void MQTT_Debug() {
   LastTReport.toCharArray(outstr, 10);
   send_mqtt_message("p1wifi/P1time_LastTReport", outstr);
 
-  LastJReport.toCharArray(outstr, 10);
-  send_mqtt_message("p1wifi/P1time_LastJReport", outstr);
 
   //     dtostrf(time_to_wake, 10,0, outstr);
   //     send_mqtt_message("p1wifi/P1time_toWake", outstr);

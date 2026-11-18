@@ -569,7 +569,7 @@ void resetFlags() {
 }
 
 void doWatchDogs() {
-  char payload[60];
+  char payload[80];
   if (ESP.getFreeHeap() < 2000) {
     Log.errorln("Rebooting because of memory leak. Free heap: %d", ESP.getFreeHeap());
     ESP.reset(); // watchdog, in case we still have a memery leak
